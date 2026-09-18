@@ -1,0 +1,23 @@
+# Never put your password in this file. The CLI asks for it securely, or reads
+# the PKU_ELECTIVE_PASSWORD environment variable.
+user:
+  student_id: "YOUR_STUDENT_ID"
+
+# Exact matching is used for every target. class_no is “班号”, not “课程号”;
+# class number 00 must be written as 0. page is the 1-based supplement page;
+# identity is bzx (main programme) or bfx (minor/double-degree programme).
+courses:
+  - id: target-1
+    name: "课程名称"
+    class_no: 1
+    school: "开课单位"
+    page: 1
+    identity: bzx
+
+# Queries are deliberately conservative. The actual delay is randomized within
+# interval × (1 ± random_deviation), and is never below 3 seconds.
+client:
+  refresh_interval: 6
+  random_deviation: 0.2
+  request_timeout: 60
+  session_lifetime: 600
