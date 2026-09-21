@@ -4,6 +4,7 @@ import argparse
 import getpass
 import os
 import random
+import re
 import sys
 import time
 from collections import defaultdict
@@ -12,6 +13,35 @@ from pathlib import Path
 from .config import load
 from .recognizer import Recognizer
 from .session import RetryableError, SchoolSession, TerminalCourseError
+
+
+_ENV_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    """Read a deliberately small, dependency-free subset of dotenv syntax."""
+    if not path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        key, separator, value = line.partition("=")
+        if not separator or not _ENV_KEY.fullmatch(key.strip()):
+            raise ValueError(f"{path}:{number} 的环境变量格式无效")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
+def _password(env_file: Path) -> str:
+    # The calling environment is intentionally authoritative for CI and shells.
+    return os.environ.get("PKU_ELECTIVE_PASSWORD") or _read_env_file(env_file).get("PKU_ELECTIVE_PASSWORD", "")
 
 
 def _log(message: str) -> None:
@@ -80,6 +110,7 @@ def run(config_path: Path, password: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="PKU Auto Elective terminal helper (ONNX / cross-platform)")
     parser.add_argument("--config", type=Path, required=True, help="YAML 配置路径")
+    parser.add_argument("--env-file", type=Path, default=Path(".env"), help="密码环境文件路径（默认：.env）")
     parser.add_argument("--check", action="store_true", help="只校验配置与 ONNX 模型，不发网络请求")
     args = parser.parse_args(argv)
     try:
@@ -88,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             print(f"配置和 ONNX 模型有效：{len(settings.targets)} 门目标课程")
             return 0
-        password = os.environ.get("PKU_ELECTIVE_PASSWORD") or getpass.getpass("IAAA 密码（不会保存）：")
+        password = _password(args.env_file) or getpass.getpass("IAAA 密码（不会保存）：")
         if not password:
             raise ValueError("密码不能为空")
         return run(args.config, password)

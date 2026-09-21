@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from pku_elective_cli.config import load
+from pku_elective_cli.cli import _password, _read_env_file
 from pku_elective_cli.session import IAAA_CALLBACK
 from pku_elective_cli.session import SchoolSession
 from pku_elective_cli import recognizer as recognizer_module
@@ -65,3 +66,18 @@ def test_normal_course_page_cannot_be_mistaken_for_credit_limit():
 def test_reads_only_submission_message_panel():
     document = "<html><body><th>学分</th><td id='msgTips'><table><table><td>图标</td><td>总学分已经超过规定上限</td></table></table></td></body></html>"
     assert SchoolSession._submission_message(document) == "总学分已经超过规定上限"
+
+
+def test_reads_password_from_dotenv(tmp_path: Path, monkeypatch):
+    path = tmp_path / ".env"
+    path.write_text("# local credential\nexport PKU_ELECTIVE_PASSWORD='secret value'\n", encoding="utf-8")
+    monkeypatch.delenv("PKU_ELECTIVE_PASSWORD", raising=False)
+    assert _read_env_file(path)["PKU_ELECTIVE_PASSWORD"] == "secret value"
+    assert _password(path) == "secret value"
+
+
+def test_process_environment_overrides_dotenv(tmp_path: Path, monkeypatch):
+    path = tmp_path / ".env"
+    path.write_text("PKU_ELECTIVE_PASSWORD=file-secret\n", encoding="utf-8")
+    monkeypatch.setenv("PKU_ELECTIVE_PASSWORD", "shell-secret")
+    assert _password(path) == "shell-secret"

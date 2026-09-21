@@ -3,4 +3,7 @@
 __pycache__/
 *.py[cod]
 config.local.yaml
+.env
+.env.*
+!.env.example
 data/
